@@ -10,6 +10,7 @@ def server(address):
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(address)
     sock.listen(5)
+    print('Ready for Connections')
     while True:
         client, addr = sock.accept()
         print('Connection', addr)
