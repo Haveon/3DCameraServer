@@ -2,6 +2,7 @@ import pyrealsense2 as rs
 import numpy as np
 from collections import namedtuple
 from time import time
+import cv2
 
 # Has to be run with root priviledges for some reason
 
@@ -74,6 +75,10 @@ class RealSense2:
 
 if __name__ == '__main__':
     with RealSense2() as cam:
-        album = cam.takePicture()
-        print(album)
-        print(album.depth.shape)
+        key = ''
+        while key!=113:
+            album = cam.takePicture()
+            cv2.imshow('RealSense2 Color', album.color)
+            cv2.imshow('RealSense2 Depth', album.depth)
+            key = cv2.waitKey(5)
+        cv2.destroyAllWindows()

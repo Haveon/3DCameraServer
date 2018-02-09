@@ -96,19 +96,10 @@ class ZEDCamera:
 
 if __name__ == '__main__':
     with ZEDCamera() as cam:
-        album = cam.takePicture()
-        print(album)
-        print(album.depth.shape)
-
-# try:
-#     while True:
-#         err = cam.grab(runtime)
-#         print(err)
-#         cam.retrieve_image(mat_color, sl.PyVIEW.PyVIEW_SIDE_BY_SIDE)
-#         cam.retrieve_image(mat_depth, sl.PyVIEW.PyVIEW_DEPTH)
-#         cv2.imshow('ZED', mat_color.get_data())
-#         cv2.imshow('Depth', mat_depth.get_data())
-#         cv2.waitKey(5)
-# except KeyboardInterrupt:
-#     cv2.destroyAllWindows()
-#     cam.close()
+        key = ''
+        while key!=113:
+            album = cam.takePicture()
+            cv2.imshow('ZED Color', album.color)
+            cv2.imshow('ZED Depth', album.depth)
+            key = cv2.waitKey(5)
+        cv2.destroyAllWindows()
