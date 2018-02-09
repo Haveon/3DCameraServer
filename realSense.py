@@ -9,8 +9,8 @@ class RealSense2:
     def __init__(self, height=640, width=480, depth=True, color=True):
         self.width = width
         self.height= height
-        self.depth = True
-        self.color = True
+        self.depth = depth
+        self.color = color
         return
 
     def __enter__(self):
