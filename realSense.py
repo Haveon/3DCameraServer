@@ -15,29 +15,34 @@ class RealSense2:
         return
 
     def __enter__(self):
-        self.pipeline = rs.pipeline()
-        config = rs.config()
+        try:
+            self.config
+        except AttributeError:
+            self.pipeline = rs.pipeline()
+            self.config = rs.config()
 
-        self.varNames = []
-        if self.depth:
-            print('Configuring Depth Stream: {}x{}'.format(self.width, self.height))
-            config.enable_stream(rs.stream.depth, self.height, self.width, rs.format.z16, 30)
-            self.varNames.append('depth')
-        if self.color:
-            print('Configuring Color Stream: {}x{}'.format(self.width, self.height))
-            config.enable_stream(rs.stream.color, self.height, self.width, rs.format.bgr8, 30)
-            self.varNames.append('color')
+            self.varNames = []
+            if self.depth:
+                print('Configuring Depth Stream: {}x{}'.format(self.width, self.height))
+                self.config.enable_stream(rs.stream.depth, self.height, self.width, rs.format.z16, 30)
+                self.varNames.append('depth')
+            if self.color:
+                print('Configuring Color Stream: {}x{}'.format(self.width, self.height))
+                self.config.enable_stream(rs.stream.color, self.height, self.width, rs.format.bgr8, 30)
+                self.varNames.append('color')
 
-        # A place to store images
-        self.Album = namedtuple('Album', self.varNames)
+            # A place to store images
+            self.Album = namedtuple('Album', self.varNames)
 
         print('Starting Pipeline')
-        self.pipeline.start(config)
+        self.running = True
+        self.pipeline.start(self.config)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         print('Stopping Pipeline')
         self.pipeline.stop()
+        self.running = False
 
     def startStream(self):
         self.__enter__()
@@ -48,6 +53,8 @@ class RealSense2:
     def takePicture(self):
         pics = []
         start = time()
+        if not self.running:
+            self.startStream()
         while True:
             flag=1
             frames = self.pipeline.wait_for_frames()
@@ -69,8 +76,10 @@ class RealSense2:
                     pics.append(color_image)
 
             if flag:
+                self.closeStream()
                 return self.Album(*pics)
             elif (time() - start) > 1:
+                self.closeStream()
                 raise TimeoutError('The Camera is taking longer than 1 sec')
 
 if __name__ == '__main__':
