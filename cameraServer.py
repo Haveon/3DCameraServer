@@ -1,13 +1,18 @@
 import socket
 from realSense import RealSense2
-from ZED import ZEDCamera
+try:
+    from ZED import ZEDCamera
+    isZed=True
+except:
+    isZed=False
 import numpy as np
 
 rsCam = RealSense2()
 rsCam.startStream()
 
-zedCam = ZEDCamera()
-zedCam.startStream()
+if isZed:
+    zedCam = ZEDCamera()
+    zedCam.startStream()
 
 def server(address):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -26,12 +31,14 @@ def server(address):
             command = req.decode('ascii')
             if command[:3]=='pic':
                 rsAlbum = rsCam.takePicture()
-                zedAlbum = zedCam.takePicture()
+                if isZed:
+                    zedAlbum = zedCam.takePicture()
                 fname = command[4:-1]
                 np.save(fname+'_rs_depth.npy', rsAlbum.depth)
                 np.save(fname+'_rs_color.npy', rsAlbum.color)
-                np.save(fname+'_zed_depth.npy', zedAlbum.depth)
-                np.save(fname+'_zed_color.npy', zedAlbum.color)
+                if isZed:
+                    np.save(fname+'_zed_depth.npy', zedAlbum.depth)
+                    np.save(fname+'_zed_color.npy', zedAlbum.color)
             else:
                 print('ERROR: improper command!')
 
