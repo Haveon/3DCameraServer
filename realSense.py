@@ -82,6 +82,11 @@ class RealSense2:
                 raise TimeoutError('The Camera is taking longer than 1 sec')
 
     def takePicture(self):
+        """
+        Returns an Album namedtuple.
+        This method starts a stream, waits for the frames and builds the album
+        to be returned. After the frames after returned, the stream is closed.
+        """
         try:
             self.startStream()
             return self._getFrames()
@@ -89,6 +94,18 @@ class RealSense2:
             self.closeStream()
 
     def videoStream(self):
+        """
+        Returns a generator object.
+        This generator is to be used with the send method and accepts boolean
+        values.
+        If the value is True a StopIteration exception is raised.
+        If false, the generator returns an Album named tuple with the images
+        taken at that time.
+
+        >>> cam = RealSense2()
+        >>> reel = cam.videoStream()
+        >>> album = reel.send(False)
+        """
         try:
             self.startStream()
             while True:
