@@ -12,6 +12,7 @@ class RealSense2:
         self.height= height
         self.depth = depth
         self.color = color
+        self.running = False
         return
 
     def __enter__(self):
@@ -34,15 +35,17 @@ class RealSense2:
             # A place to store images
             self.Album = namedtuple('Album', self.varNames)
 
-        print('Starting Pipeline')
-        self.running = True
-        self.pipeline.start(self.config)
+        if not self.running:
+            print('Starting Pipeline')
+            self.pipeline.start(self.config)
+            self.running = True
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        print('Stopping Pipeline')
-        self.pipeline.stop()
-        self.running = False
+        if self.running:
+            print('Stopping Pipeline')
+            self.pipeline.stop()
+            self.running = False
 
     def startStream(self):
         self.__enter__()
@@ -50,11 +53,9 @@ class RealSense2:
     def closeStream(self):
         self.__exit__(None, None, None)
 
-    def takePicture(self):
+    def _getFrames(self):
         pics = []
         start = time()
-        if not self.running:
-            self.startStream()
         while True:
             flag=1
             frames = self.pipeline.wait_for_frames()
@@ -76,18 +77,43 @@ class RealSense2:
                     pics.append(color_image)
 
             if flag:
-                self.closeStream()
                 return self.Album(*pics)
             elif (time() - start) > 1:
-                self.closeStream()
                 raise TimeoutError('The Camera is taking longer than 1 sec')
+
+    def takePicture(self):
+        try:
+            self.startStream()
+            return self._getFrames()
+        finally:
+            self.closeStream()
+
+    def videoStream(self):
+        try:
+            self.startStream()
+            while True:
+                try:
+                    quit = yield self._getFrames()
+                    if quit:
+                        break
+                except TimeoutError:
+                    print('Was there a missing frame?')
+        finally:
+            self.closeStream()
+
 
 if __name__ == '__main__':
     with RealSense2() as cam:
         key = ''
-        while key!=113:
-            album = cam.takePicture()
-            cv2.imshow('RealSense2 Color', album.color)
-            cv2.imshow('RealSense2 Depth', album.depth)
-            key = cv2.waitKey(5)
+        reel = cam.videoStream()
+        # Start the generator
+        reel.send(None)
+        while True:
+            try:
+                key = cv2.waitKey(5)
+                album = reel.send(key==113)
+                cv2.imshow('RealSense2 Color', album.color)
+                cv2.imshow('RealSense2 Depth', album.depth)
+            except StopIteration:
+                break
         cv2.destroyAllWindows()
