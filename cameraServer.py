@@ -1,18 +1,41 @@
 import socket
-from realSense import RealSense2
+import numpy as np
+
+try:
+    from realSense import RealSense2
+    rsCam = RealSense2()
+    rsCam.takePicture()
+    isRS = True
+except:
+    isRS = False
+    print('Realsense Camera could not be opened!')
+
 try:
     from ZED import ZEDCamera
+    zedCam = ZEDCamera()
+    zedCam.startStream()
     isZed=True
 except:
     isZed=False
-import numpy as np
+    print('ZED Camera could not be opened!')
 
-rsCam = RealSense2()
-rsCam.startStream()
+if not isRS:
+    while True:
+        resp = input('The RealSense camera was not opened. Continue? (y/n)')
+        if resp.lower()=='n':
+            print('Exiting')
+            exit()
+        elif resp.lower()=='y':
+            break
 
-if isZed:
-    zedCam = ZEDCamera()
-    zedCam.startStream()
+if not isZed:
+    while True:
+        resp = input('The ZED camera was not opened. Continue? (y/n)')
+        if resp.lower()=='n':
+            print('Exiting')
+            exit()
+        elif resp.lower()=='y':
+            break
 
 def server(address):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -30,13 +53,13 @@ def server(address):
             # Parse command here
             command = req.decode('ascii')
             if command[:3]=='pic':
-                rsAlbum = rsCam.takePicture()
+                fname = command[4:-1]
+                if isRS:
+                    rsAlbum = rsCam.takePicture()
+                    np.save(fname+'_rs_depth.npy', rsAlbum.depth)
+                    np.save(fname+'_rs_color.npy', rsAlbum.color)
                 if isZed:
                     zedAlbum = zedCam.takePicture()
-                fname = command[4:-1]
-                np.save(fname+'_rs_depth.npy', rsAlbum.depth)
-                np.save(fname+'_rs_color.npy', rsAlbum.color)
-                if isZed:
                     np.save(fname+'_zed_depth.npy', zedAlbum.depth)
                     np.save(fname+'_zed_color.npy', zedAlbum.color)
             else:
