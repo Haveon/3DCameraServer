@@ -74,7 +74,7 @@ class RealSense2:
                     flag*=0
                 else:
                     color_image = np.asanyarray(color_frame.get_data())
-                    pics.append(color_image)
+                    pics.append(color_image[:,:,(2,1,0)])
 
             if flag:
                 return self.Album(*pics)
