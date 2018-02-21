@@ -1,5 +1,6 @@
 import socket
 import numpy as np
+import matplotlib.pyplot as plt
 
 def checkCamerasStarted(isRS, isZed):
     if not isRS:
@@ -58,7 +59,7 @@ def setUpSocket(address):
     sock.listen(5)
     return sock
 
-def pictureLoop(client, cameras, startedQ):
+def pictureLoop(client, cameras, startedQ, fig):
     req = client.recv(4096)
     if not req:
         return True
@@ -71,6 +72,9 @@ def pictureLoop(client, cameras, startedQ):
                 album = cameras[key].takePicture()
                 np.save('{}_{}_depth.npy'.format(fname,key), album.depth)
                 np.save('{}_{}_color.npy'.format(fname,key), album.color)
+                fig[0 if key=='RS' else 1].imshow(album.color)#ax = fig.subplot(211 if key=='RS' else 212)
+                ax.imshow(album.color)
+                #plt.show()
         print('OK')
     else:
         print('ERROR: improper command!')
@@ -83,12 +87,16 @@ def main(address):
     print('Ready for Connections')
 
     try:
+        plt.ion()
+        fig = plt.figure()
+        ax1 = fig.add_subplot(211)
+        ax2 = fig.add_subplot(212)
         while True:
             client, addr = sock.accept()
             print('Connection', addr)
             pictureTakenQ = False
             while not pictureTakenQ:
-                pictureTakenQ = pictureLoop(client, cameras, startedQ)
+                pictureTakenQ = pictureLoop(client, cameras, startedQ, [ax1,ax2])
     finally:
         print('Closing Cameras')
         for key in startedQ:
