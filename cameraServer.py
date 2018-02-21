@@ -1,68 +1,99 @@
 import socket
 import numpy as np
 
-try:
-    from realSense import RealSense2
-    rsCam = RealSense2()
-    rsCam.takePicture()
-    isRS = True
-except:
-    isRS = False
-    print('Realsense Camera could not be opened!')
+def checkCamerasStarted(isRS, isZed):
+    if not isRS:
+        while True:
+            resp = input('The RealSense camera was not opened. Continue? (y/n)')
+            if resp.lower()=='n':
+                print('Exiting')
+                return False
+            elif resp.lower()=='y':
+                break
 
-try:
-    from ZED import ZEDCamera
-    zedCam = ZEDCamera()
-    zedCam.startStream()
-    isZed=True
-except:
-    isZed=False
-    print('ZED Camera could not be opened!')
+    if not isZed:
+        while True:
+            resp = input('The ZED camera was not opened. Continue? (y/n)')
+            if resp.lower()=='n':
+                print('Exiting')
+                return False
+            elif resp.lower()=='y':
+                break
+    return True
 
-if not isRS:
-    while True:
-        resp = input('The RealSense camera was not opened. Continue? (y/n)')
-        if resp.lower()=='n':
-            print('Exiting')
-            exit()
-        elif resp.lower()=='y':
-            break
+def startCameras():
+    cameras = {}
+    startedQ = {}
+    try:
+        from realSense import RealSense2
+        rsCam = RealSense2()
+        rsCam.takePicture()
+        isRS = True
+        cameras['RS'] = rsCam
+        startedQ['RS'] = isRS
+    except:
+        isRS = False
+        print('Realsense Camera could not be opened!')
 
-if not isZed:
-    while True:
-        resp = input('The ZED camera was not opened. Continue? (y/n)')
-        if resp.lower()=='n':
-            print('Exiting')
-            exit()
-        elif resp.lower()=='y':
-            break
+    try:
+        from ZED import ZEDCamera
+        zedCam = ZEDCamera()
+        zedCam.startStream()
+        isZed=True
+        cameras['ZED'] = zedCam
+        startedQ['ZED'] = isZed
+    except:
+        isZed=False
+        print('ZED Camera could not be opened!')
 
-def server(address):
+    if not checkCamerasStarted(isRS, isZed):
+        exit()
+
+    return cameras, startedQ
+
+def setUpSocket(address):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(address)
     sock.listen(5)
-    print('Ready for Connections')
-    while True:
-        client, addr = sock.accept()
-        print('Connection', addr)
-        while True:
-            req = client.recv(4096)
-            if not req:
-                break
-            # Parse command here
-            command = req.decode('ascii')
-            if command[:3]=='pic':
-                fname = command[4:-1]
-                if isRS:
-                    rsAlbum = rsCam.takePicture()
-                    np.save(fname+'_rs_depth.npy', rsAlbum.depth)
-                    np.save(fname+'_rs_color.npy', rsAlbum.color)
-                if isZed:
-                    zedAlbum = zedCam.takePicture()
-                    np.save(fname+'_zed_depth.npy', zedAlbum.depth)
-                    np.save(fname+'_zed_color.npy', zedAlbum.color)
-            else:
-                print('ERROR: improper command!')
+    return sock
 
-server(('', 25000))
+def pictureLoop(client, cameras, startedQ):
+    req = client.recv(4096)
+    if not req:
+        return True
+    # Parse command here
+    command = req.decode('ascii')
+    if command[:3]=='pic':
+        fname = command[4:-1]
+        for key in startedQ:
+            if startedQ[key]:
+                album = cameras[key].takePicture()
+                np.save('{}_{}_depth.npy'.format(fname,key), album.depth)
+                np.save('{}_{}_color.npy'.format(fname,key), album.color)
+        print('OK')
+    else:
+        print('ERROR: improper command!')
+    return False
+
+def main(address):
+    cameras, startedQ = startCameras()
+
+    sock = setUpSocket(address)
+    print('Ready for Connections')
+
+    try:
+        while True:
+            client, addr = sock.accept()
+            print('Connection', addr)
+            pictureTakenQ = False
+            while not pictureTakenQ:
+                pictureTakenQ = pictureLoop(client, cameras, startedQ)
+    finally:
+        print('Closing Cameras')
+        for key in startedQ:
+            cameras[key].closeStream()
+    return
+
+if __name__ == '__main__':
+    main(('', 25000))
