@@ -69,7 +69,7 @@ class ZEDCamera:
         self.__enter__()
 
     def closeStream(self):
-        self.__exit__()
+        self.__exit__(None, None, None)
 
     def takePicture(self):
         pics = []
