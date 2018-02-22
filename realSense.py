@@ -47,6 +47,11 @@ class RealSense2:
             self.pipeline.stop()
             self.running = False
 
+    def __del__(self):
+        if self.running:
+            print('Stopping Pipeline')
+            self.pipeline.stop()
+
     def startStream(self):
         self.__enter__()
 

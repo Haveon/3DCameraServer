@@ -65,6 +65,9 @@ class ZEDCamera:
         print('Closing ZED...')
         self.cam.close()
 
+    def __del__(self):
+        self.cam.close()
+
     def startStream(self):
         self.__enter__()
 
