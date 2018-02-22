@@ -59,7 +59,7 @@ def setUpSocket(address):
     sock.listen(5)
     return sock
 
-def pictureLoop(client, cameras, startedQ, fig):
+def pictureLoop(client, cameras, startedQ, axes):
     req = client.recv(4096)
     if not req:
         return True
@@ -72,9 +72,11 @@ def pictureLoop(client, cameras, startedQ, fig):
                 album = cameras[key].takePicture()
                 np.save('{}_{}_depth.npy'.format(fname,key), album.depth)
                 np.save('{}_{}_color.npy'.format(fname,key), album.color)
-                fig[0 if key=='RS' else 1].imshow(album.color)#ax = fig.subplot(211 if key=='RS' else 212)
-                ax.imshow(album.color)
-                #plt.show()
+                if key=='RS':
+                    axes[0].imshow(album.color)
+                elif key=='ZED':
+                    axes[1].imshow(album.color[:,:1920,(2,1,0)])
+                plt.pause(0.05)
         print('OK')
     else:
         print('ERROR: improper command!')
@@ -88,7 +90,7 @@ def main(address):
 
     try:
         plt.ion()
-        fig = plt.figure()
+        fig = plt.figure(figsize=(16,9))
         ax1 = fig.add_subplot(211)
         ax2 = fig.add_subplot(212)
         while True:
