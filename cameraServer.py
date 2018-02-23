@@ -75,7 +75,7 @@ def pictureLoop(client, cameras, startedQ, axes):
                 if key=='RS':
                     axes[0].imshow(album.color)
                 elif key=='ZED':
-                    axes[1].imshow(album.color[:,:1920,(2,1,0)])
+                    axes[1].imshow(album.color[:,:1280,(2,1,0)])
                 plt.pause(0.05)
         print('OK')
     else:
