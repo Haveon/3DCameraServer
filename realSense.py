@@ -94,6 +94,8 @@ class RealSense2:
         """
         try:
             self.startStream()
+            for i in range(10):
+                self._getFrames()
             return self._getFrames()
         finally:
             self.closeStream()
