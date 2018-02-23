@@ -74,11 +74,14 @@ class ZEDCamera:
     def closeStream(self):
         self.__exit__(None, None, None)
 
-    def takePicture(self):
+    def takePicture(self, emptyBuffer=True):
         pics = []
         start = time()
         while True:
             status = self.cam.grab(self.runtime)
+            if emptyBuffer:
+                for i in range(7):
+                    status = self.cam.grab(self.runtime)
             if status == tp.PyERROR_CODE.PySUCCESS:
                 if self.depth:
                     self.cam.retrieve_image(self.mat_depth, sl.PyVIEW.PyVIEW_DEPTH)
@@ -101,7 +104,7 @@ if __name__ == '__main__':
     with ZEDCamera() as cam:
         key = ''
         while key!=113:
-            album = cam.takePicture()
+            album = cam.takePicture(False)
             cv2.imshow('ZED Color', album.color)
             cv2.imshow('ZED Depth', album.depth)
             key = cv2.waitKey(5)
