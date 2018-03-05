@@ -59,28 +59,18 @@ def setUpSocket(address):
     sock.listen(5)
     return sock
 
-def pictureLoop(client, cameras, startedQ, axes):
-    req = client.recv(4096)
-    if not req:
-        return True
-    # Parse command here
-    command = req.decode('ascii')
-    if command[:3]=='pic':
-        fname = command[4:-1]
-        for key in startedQ:
-            if startedQ[key]:
-                album = cameras[key].takePicture()
-                np.save('{}_{}_depth.npy'.format(fname,key), album.depth)
-                np.save('{}_{}_color.npy'.format(fname,key), album.color)
-                if key=='RS':
-                    axes[0].imshow(album.color)
-                elif key=='ZED':
-                    axes[1].imshow(album.color[:,:1280,(2,1,0)])
-                plt.pause(0.05)
-        print('OK')
-    else:
-        print('ERROR: improper command!')
-    return False
+def pictureLoop(fname, client, cameras, startedQ, axes):
+    for key in startedQ:
+        if startedQ[key]:
+            album = cameras[key].takePicture()
+            np.save('{}_{}_depth.npy'.format(fname,key), album.depth)
+            np.save('{}_{}_color.npy'.format(fname,key), album.color)
+            if key=='RS':
+                axes[0].imshow(album.color)
+            elif key=='ZED':
+                axes[1].imshow(album.color[:,:1280,(2,1,0)])
+            plt.pause(0.05)
+    print('OK')
 
 def main(address):
     cameras, startedQ = startCameras()
@@ -96,9 +86,22 @@ def main(address):
         while True:
             client, addr = sock.accept()
             print('Connection', addr)
-            pictureTakenQ = False
-            while not pictureTakenQ:
-                pictureTakenQ = pictureLoop(client, cameras, startedQ, [ax1,ax2])
+            exitFlag = False
+            while True:
+                req = client.recv(4096)
+                if not req:
+                    continue
+                command = req.decode('ascii').split(' ')
+                verb = command[0]
+                if verb=='pic':
+                    fname = command[1][:-1]
+                    pictureLoop(fname, client, cameras, startedQ, [ax1,ax2])
+                elif verb=='off':
+                    pass
+                elif verb=='on':
+                    pass
+                else:
+                    print('ERROR: {} is not a proper command'.format(verb))
     finally:
         print('Closing Cameras')
         for key in startedQ:
