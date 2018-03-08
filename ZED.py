@@ -5,6 +5,32 @@ import pyzed.defines as sl
 from collections import namedtuple
 from time import sleep, time
 import cv2
+from threading import Thread
+from queue import Empty, Queue
+
+class ZEDVideoStream(Thread):
+    def __init__(self, ZED, inputQueue, outputQueue):
+        self.ZED = ZED
+        self.inputQueue = inputQueue
+        self.outputQueue = outputQueue
+        Thread.__init__(self)
+
+    def run(self):
+        while True:
+            album = self.ZED._takePicture(emptyBuffer=False)
+
+            try:
+                command = self.inputQueue.get(block=False)
+            except Empty:
+                command = None
+
+            if command == 1:
+                self.outputQueue.put(album)
+            elif command == 0:
+                break
+            elif command == None:
+                continue
+        return
 
 class ZEDCamera:
     def __init__(self, resolution='720', depth_mode='ultra', depth=True, color=True):
@@ -24,6 +50,7 @@ class ZEDCamera:
         self.init.camera_resolution = resolutions[resolution]
         self.init.depth_mode = depthModes[depth_mode]
         self.cam = zcam.PyZEDCamera()
+        self.inQ, self.outQ = Queue(maxsize=1), Queue(maxsize=1)
         return
 
     def _openCamera(self, totalAttempts=5):
@@ -56,6 +83,8 @@ class ZEDCamera:
                     varNames.append('color')
                 self.Album = namedtuple('Album', varNames)
 
+                self.videoStream = ZEDVideoStream(self, self.inQ, self.outQ)
+                self.videoStream.start()
                 return self
             else:
                 sleep(5)
@@ -63,9 +92,13 @@ class ZEDCamera:
 
     def __exit__(self, exc_type, exc_value, traceback):
         print('Closing ZED...')
+        self.inQ.put(0)
+        self.videoStream.join()
         self.cam.close()
 
     def __del__(self):
+        self.inQ.put(0)
+        self.videoStream.join()
         self.cam.close()
 
     def startStream(self):
@@ -74,7 +107,7 @@ class ZEDCamera:
     def closeStream(self):
         self.__exit__(None, None, None)
 
-    def takePicture(self, emptyBuffer=True):
+    def _takePicture(self, emptyBuffer=False):
         pics = []
         start = time()
         while True:
@@ -100,11 +133,16 @@ class ZEDCamera:
 
         return self.Album(*pics)
 
+    def takePicture(self):
+        self.inQ.put(1)
+        album = self.outQ.get()
+        return album
+
 if __name__ == '__main__':
     with ZEDCamera() as cam:
         key = ''
         while key!=113:
-            album = cam.takePicture(False)
+            album = cam.takePicture()
             cv2.imshow('ZED Color', album.color)
             cv2.imshow('ZED Depth', album.depth)
             key = cv2.waitKey(5)
