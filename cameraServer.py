@@ -59,33 +59,39 @@ def setUpSocket(address):
     sock.listen(5)
     return sock
 
-def pictureLoop(command, cameras, startedQ, axes):
+def pictureLoop(command, cameras, startedQ, axes, fig):
     verb = command[0]
     for key in startedQ:
         if startedQ[key]:
             if verb=='pic':
                 picVerb(command[1], cameras, axes, key)
             elif verb=='on':
-                onVerb(cameras, axes, key)
+                onVerb(cameras, axes, key, fig)
             elif verb=='off':
-                offVerb(command[1], cameras, axes, key)
+                offVerb(command[1], cameras, axes, key, fig)
             else:
                 print('ERROR: {} is not a proper command'.format(verb))
     plt.pause(0.05)
 
-def offVerb(fname, cameras, axes, key):
+def offVerb(fname, cameras, axes, key, fig):
     if key=='RS':
         takePicture(cameras[key], fname, key, axes[0], emptyBuffer=False)
         cameras[key].closeStream()
     elif key=='ZED':
         takePicture(cameras[key], fname, key, axes[1], emptyBuffer=False)
+    # GO
+    fig.texts[0].set_visible(True)
+    fig.texts[1].set_visible(False)
     return
 
-def onVerb(cameras, axes, key):
+def onVerb(cameras, axes, key, fig):
     if key=='RS':
         cameras[key].startStream()
     elif key=='ZED':
         pass
+    # STOP
+    fig.texts[0].set_visible(False)
+    fig.texts[1].set_visible(True)
     return
 
 def picVerb(fname, cameras, axes, key):
@@ -111,6 +117,8 @@ def main(address):
     try:
         plt.ion()
         fig = plt.figure(figsize=(16,9))
+        fig.text(0.7, 0.6, ' GO ', color='green', fontsize=120)
+        fig.text(0.7, 0.6, 'STOP', color='red', fontsize=120)
         axes = [fig.add_subplot(211), fig.add_subplot(212)]
         while True:
             client, addr = sock.accept()
@@ -121,7 +129,7 @@ def main(address):
                 if not req:
                     continue
                 command = req.decode('ascii')[:-1].split(' ')
-                pictureLoop(command, cameras, startedQ, axes)
+                pictureLoop(command, cameras, startedQ, axes, fig)
     finally:
         print('Closing Cameras')
         for key in startedQ:
