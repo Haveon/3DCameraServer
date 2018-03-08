@@ -86,19 +86,23 @@ class RealSense2:
             elif (time() - start) > 1:
                 raise TimeoutError('The Camera is taking longer than 1 sec')
 
-    def takePicture(self):
+    def takePicture(self, emptyBuffer=False):
         """
         Returns an Album namedtuple.
-        This method starts a stream, waits for the frames and builds the album
-        to be returned. After the frames after returned, the stream is closed.
+        This method starts a stream if needed, waits for the frames and builds the album
+        to be returned. After the frames after returned, the stream is returned
+        to its initial state.
         """
+        initialState = self.running
         try:
             self.startStream()
-            for i in range(10):
-                self._getFrames()
+            if emptyBuffer:
+                for i in range(10):
+                    self._getFrames()
             return self._getFrames()
         finally:
-            self.closeStream()
+            if not initialState:
+                self.closeStream()
 
     def videoStream(self):
         """
