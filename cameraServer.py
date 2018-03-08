@@ -59,18 +59,49 @@ def setUpSocket(address):
     sock.listen(5)
     return sock
 
-def pictureLoop(fname, client, cameras, startedQ, axes):
+def pictureLoop(command, cameras, startedQ, axes):
+    verb = command[0]
     for key in startedQ:
         if startedQ[key]:
-            album = cameras[key].takePicture()
-            np.save('{}_{}_depth.npy'.format(fname,key), album.depth)
-            np.save('{}_{}_color.npy'.format(fname,key), album.color)
-            if key=='RS':
-                axes[0].imshow(album.color)
-            elif key=='ZED':
-                axes[1].imshow(album.color[:,:1280,(2,1,0)])
-            plt.pause(0.05)
-    print('OK')
+            if verb=='pic':
+                picVerb(command[1], cameras, axes, key)
+            elif verb=='on':
+                onVerb(cameras, axes, key)
+            elif verb=='off':
+                offVerb(command[1], cameras, axes, key)
+            else:
+                print('ERROR: {} is not a proper command'.format(verb))
+    plt.pause(0.05)
+
+def offVerb(fname, cameras, axes, key):
+    if key=='RS':
+        takePicture(cameras[key], fname, key, axes[0], emptyBuffer=False)
+        cameras[key].closeStream()
+    elif key=='ZED':
+        # TODO: Update ZED.takePicture to change emptyBuffer to false
+        takePicture(cameras[key], fname, key, axes[1], emptyBuffer=True)
+    return
+
+def onVerb(cameras, axes, key):
+    if key=='RS':
+        cameras[key].startStream()
+    elif key=='ZED':
+        pass
+    return
+
+def picVerb(fname, cameras, axes, key):
+    if key=='RS':
+        takePicture(cameras[key], fname, key, axes[0], emptyBuffer=True)
+    elif key=='ZED':
+        takePicture(cameras[key], fname, key, axes[1], emptyBuffer=True)
+    return
+
+def takePicture(camera, fname, cameraName, axes, emptyBuffer=False):
+    album = camera.takePicture(emptyBuffer)
+    np.save('{}_{}_depth.npy'.format(fname,cameraName), album.depth)
+    np.save('{}_{}_color.npy'.format(fname,cameraName), album.color)
+    img = album.color if cameraName=='RS' else album.color[:,:1280,(2,1,0)]
+    axes.imshow(img)
 
 def main(address):
     cameras, startedQ = startCameras()
@@ -81,8 +112,7 @@ def main(address):
     try:
         plt.ion()
         fig = plt.figure(figsize=(16,9))
-        ax1 = fig.add_subplot(211)
-        ax2 = fig.add_subplot(212)
+        axes = [fig.add_subplot(211), fig.add_subplot(212)]
         while True:
             client, addr = sock.accept()
             print('Connection', addr)
@@ -91,17 +121,8 @@ def main(address):
                 req = client.recv(4096)
                 if not req:
                     continue
-                command = req.decode('ascii').split(' ')
-                verb = command[0]
-                if verb=='pic':
-                    fname = command[1][:-1]
-                    pictureLoop(fname, client, cameras, startedQ, [ax1,ax2])
-                elif verb=='off':
-                    pass
-                elif verb=='on':
-                    pass
-                else:
-                    print('ERROR: {} is not a proper command'.format(verb))
+                command = req.decode('ascii')[:-1].split(' ')
+                pictureLoop(command, cameras, startedQ, axes)
     finally:
         print('Closing Cameras')
         for key in startedQ:
