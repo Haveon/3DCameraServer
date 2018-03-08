@@ -78,8 +78,7 @@ def offVerb(fname, cameras, axes, key):
         takePicture(cameras[key], fname, key, axes[0], emptyBuffer=False)
         cameras[key].closeStream()
     elif key=='ZED':
-        # TODO: Update ZED.takePicture to change emptyBuffer to false
-        takePicture(cameras[key], fname, key, axes[1], emptyBuffer=True)
+        takePicture(cameras[key], fname, key, axes[1], emptyBuffer=False)
     return
 
 def onVerb(cameras, axes, key):

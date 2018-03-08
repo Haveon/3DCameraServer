@@ -133,7 +133,7 @@ class ZEDCamera:
 
         return self.Album(*pics)
 
-    def takePicture(self):
+    def takePicture(self, buffer=False):
         self.inQ.put(1)
         album = self.outQ.get()
         return album
