@@ -103,10 +103,16 @@ def picVerb(fname, cameras, axes, key):
 
 def takePicture(camera, fname, cameraName, axes, emptyBuffer=False):
     album = camera.takePicture(emptyBuffer)
-    np.save('{}_{}_depth.npy'.format(fname,cameraName), album.depth)
-    np.save('{}_{}_color.npy'.format(fname,cameraName), album.color)
-    img = album.color if cameraName=='RS' else album.color[:,:1280,(2,1,0)]
-    axes.imshow(img)
+    if cameraName=='ZED':
+        depth = album.depth[120:600,320:960,0]
+        color = np.concatenate([album.color[120:600,320:960,(2,1,0)], album.color[120:600,1600:2240,(2,1,0)]], axis=1)
+        print(color.shape)
+    else:
+        depth = album.depth
+        color = album.color
+    np.save('{}_{}_depth.npy'.format(fname,cameraName), depth)
+    np.save('{}_{}_color.npy'.format(fname,cameraName), color)
+    axes.imshow(color)
 
 def main(address):
     cameras, startedQ = startCameras()
