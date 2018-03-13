@@ -71,7 +71,8 @@ def pictureLoop(command, cameras, startedQ, axes, fig):
                 offVerb(command[1], cameras, axes, key, fig)
             else:
                 print('ERROR: {} is not a proper command'.format(verb))
-    plt.pause(0.05)
+    fig.canvas.draw()#plt.draw()#pause(0.05)
+    fig.canvas.flush_events()
 
 def offVerb(fname, cameras, axes, key, fig):
     if key=='RS':
@@ -126,6 +127,7 @@ def main(address):
         fig.text(0.7, 0.6, ' GO ', color='green', fontsize=120)
         fig.text(0.7, 0.6, 'STOP', color='red', fontsize=120)
         axes = [fig.add_subplot(211), fig.add_subplot(212)]
+        plt.show()
         while True:
             client, addr = sock.accept()
             print('Connection', addr)
