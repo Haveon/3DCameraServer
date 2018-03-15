@@ -1,148 +1,140 @@
 import socket
 import numpy as np
-import matplotlib.pyplot as plt
+import cv2
 
-def checkCamerasStarted(isRS, isZed):
-    if not isRS:
-        while True:
-            resp = input('The RealSense camera was not opened. Continue? (y/n)')
-            if resp.lower()=='n':
-                print('Exiting')
-                return False
-            elif resp.lower()=='y':
-                break
+class cameraServer:
+    def __init__(self):
+        self.verbs = {
+        'on': self._turnCamerasOn,
+        'off': self._turnCamerasOff,
+        'pic': self._takeSinglePic
+        }
+        self.frame = np.zeros([2*480,640,3],dtype=np.uint8)
+        return
 
-    if not isZed:
-        while True:
-            resp = input('The ZED camera was not opened. Continue? (y/n)')
-            if resp.lower()=='n':
-                print('Exiting')
-                return False
-            elif resp.lower()=='y':
-                break
-    return True
+    def connectCameras(self):
+        self.cameras = {}
+        self.startedQ = {}
+        try:
+            from realSense import RealSense2
+            rsCam = RealSense2()
+            rsCam.takePicture()
+            isRS = True
+            self.cameras['RS'] = rsCam
+            self.startedQ['RS'] = isRS
+        except:
+            isRS = False
+            print('Realsense Camera could not be opened!')
 
-def startCameras():
-    cameras = {}
-    startedQ = {}
-    try:
-        from realSense import RealSense2
-        rsCam = RealSense2()
-        rsCam.takePicture()
-        isRS = True
-        cameras['RS'] = rsCam
-        startedQ['RS'] = isRS
-    except:
-        isRS = False
-        print('Realsense Camera could not be opened!')
+        try:
+            from ZED import ZEDCamera
+            zedCam = ZEDCamera()
+            zedCam.startStream()
+            isZed=True
+            self.cameras['ZED'] = zedCam
+            self.startedQ['ZED'] = isZed
+        except:
+            isZed=False
+            print('ZED Camera could not be opened!')
 
-    try:
-        from ZED import ZEDCamera
-        zedCam = ZEDCamera()
-        zedCam.startStream()
-        isZed=True
-        cameras['ZED'] = zedCam
-        startedQ['ZED'] = isZed
-    except:
-        isZed=False
-        print('ZED Camera could not be opened!')
+        if not self.checkCamerasStarted(isRS, isZed):
+            exit()
+        return
 
-    if not checkCamerasStarted(isRS, isZed):
-        exit()
-
-    return cameras, startedQ
-
-def setUpSocket(address):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind(address)
-    sock.listen(5)
-    return sock
-
-def pictureLoop(command, cameras, startedQ, axes, fig):
-    verb = command[0]
-    for key in startedQ:
-        if startedQ[key]:
-            if verb=='pic':
-                picVerb(command[1], cameras, axes, key)
-            elif verb=='on':
-                onVerb(cameras, axes, key, fig)
-            elif verb=='off':
-                offVerb(command[1], cameras, axes, key, fig)
-            else:
-                print('ERROR: {} is not a proper command'.format(verb))
-    fig.canvas.draw()#plt.draw()#pause(0.05)
-    fig.canvas.flush_events()
-
-def offVerb(fname, cameras, axes, key, fig):
-    if key=='RS':
-        takePicture(cameras[key], fname, key, axes[0], emptyBuffer=False)
-        cameras[key].closeStream()
-    elif key=='ZED':
-        takePicture(cameras[key], fname, key, axes[1], emptyBuffer=False)
-    # GO
-    fig.texts[0].set_visible(True)
-    fig.texts[1].set_visible(False)
-    return
-
-def onVerb(cameras, axes, key, fig):
-    if key=='RS':
-        cameras[key].startStream()
-    elif key=='ZED':
-        pass
-    # STOP
-    fig.texts[0].set_visible(False)
-    fig.texts[1].set_visible(True)
-    return
-
-def picVerb(fname, cameras, axes, key):
-    if key=='RS':
-        takePicture(cameras[key], fname, key, axes[0], emptyBuffer=True)
-    elif key=='ZED':
-        takePicture(cameras[key], fname, key, axes[1], emptyBuffer=True)
-    return
-
-def takePicture(camera, fname, cameraName, axes, emptyBuffer=False):
-    album = camera.takePicture(emptyBuffer)
-    if cameraName=='ZED':
-        depth = album.depth[120:600,320:960,0]
-        color = np.concatenate([album.color[120:600,320:960,(2,1,0)], album.color[120:600,1600:2240,(2,1,0)]], axis=1)
-        print(color.shape)
-    else:
-        depth = album.depth
-        color = album.color
-    np.save('{}_{}_depth.npy'.format(fname,cameraName), depth)
-    np.save('{}_{}_color.npy'.format(fname,cameraName), color)
-    axes.imshow(color)
-
-def main(address):
-    cameras, startedQ = startCameras()
-
-    sock = setUpSocket(address)
-    print('Ready for Connections')
-
-    try:
-        plt.ion()
-        fig = plt.figure(figsize=(16,9))
-        fig.text(0.7, 0.6, ' GO ', color='green', fontsize=120)
-        fig.text(0.7, 0.6, 'STOP', color='red', fontsize=120)
-        axes = [fig.add_subplot(211), fig.add_subplot(212)]
-        plt.show()
-        while True:
-            client, addr = sock.accept()
-            print('Connection', addr)
-            exitFlag = False
+    def checkCamerasStarted(self, isRS, isZed):
+        if not isRS:
             while True:
-                req = client.recv(4096)
-                if not req:
-                    continue
-                command = req.decode('ascii')[:-1].split(' ')
-                pictureLoop(command, cameras, startedQ, axes, fig)
-    finally:
+                resp = input('The RealSense camera was not opened. Continue? (y/n)')
+                if resp.lower()=='n':
+                    print('Exiting')
+                    return False
+                elif resp.lower()=='y':
+                    break
+
+        if not isZed:
+            while True:
+                resp = input('The ZED camera was not opened. Continue? (y/n)')
+                if resp.lower()=='n':
+                    print('Exiting')
+                    return False
+                elif resp.lower()=='y':
+                    break
+        return True
+
+    def startServer(self, address):
+        sock = self._makeSocket(address)
+        print('Ready for Connections')
+
+        try:
+            cv2.imshow('cameraServer', self.frame)
+            cv2.waitKey(100)
+            while True:
+                client, addr = sock.accept()
+                print('Connection', addr)
+                while True:
+                    req = client.recv(4096)
+                    if not req:
+                        continue
+                    command = req.decode('ascii')[:-1].split(' ')
+                    try:
+                        self.verbs[command[0]](command)
+                    except KeyError:
+                        print('ERROR: {} is not a proper command'.format(command[0]))
+                    finally:
+                        cv2.waitKey(1)
+        finally:
+            cv2.destroyAllWindows()
+            print('Closing Cameras')
+            for key in self.startedQ:
+                self.cameras[key].closeStream()
+        return
+
+    def __del__(self):
+        cv2.destroyAllWindows()
         print('Closing Cameras')
-        for key in startedQ:
-            cameras[key].closeStream()
-    return
+        for key in self.startedQ:
+            self.cameras[key].closeStream()
+
+    def _makeSocket(self, address):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(address)
+        sock.listen(5)
+        return sock
+
+    def _turnCamerasOn(self, command):
+        if self.startedQ['RS']:
+            self.cameras['RS'].startStream()
+        cv2.imshow('cameraServer', self.frame)
+
+    def _turnCamerasOff(self, command):
+        self.takePicture(fname=command[1], emptyBuffer=False)
+        if self.startedQ['RS']:
+            self.cameras['RS'].closeStream()
+
+        cv2.imshow('cameraServer', self.frame[:,:,(2,1,0)])
+
+    def _takeSinglePic(self, command):
+        self.takePicture(fname=command[1], emptyBuffer=True)
+        return
+
+    def takePicture(self, fname, emptyBuffer=False):
+        if self.startedQ['RS']:
+            album = self.cameras['RS'].takePicture(emptyBuffer)
+            np.save('{}_{}_depth.npy'.format(fname, 'RS'), album.depth)
+            np.save('{}_{}_color.npy'.format(fname, 'RS'), album.color)
+            self.frame[:480,:,:] = album.color
+
+        if self.startedQ['ZED']:
+            album = self.cameras['ZED'].takePicture(emptyBuffer)
+            depth = album.depth[120:600,320:960,0]
+            color = np.concatenate([album.color[120:600,320:960,(2,1,0)], album.color[120:600,1600:2240,(2,1,0)]], axis=1)
+            np.save('{}_{}_depth.npy'.format(fname, 'ZED'), depth)
+            np.save('{}_{}_color.npy'.format(fname, 'ZED'), color)
+            self.frame[480:,:,:] = color[:,:640,:]
+        return
 
 if __name__ == '__main__':
-    main(('', 25000))
+    server = cameraServer()
+    server.connectCameras()
+    server.startServer(('', 25000))
