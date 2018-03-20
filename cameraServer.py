@@ -81,6 +81,7 @@ class cameraServer:
                     except KeyError:
                         print('ERROR: {} is not a proper command'.format(command[0]))
                     finally:
+                        cv2.imshow('cameraServer', self.frame)
                         cv2.waitKey(1)
         finally:
             cv2.destroyAllWindows()
@@ -105,14 +106,13 @@ class cameraServer:
     def _turnCamerasOn(self, command):
         if self.startedQ['RS']:
             self.cameras['RS'].startStream()
-        cv2.imshow('cameraServer', self.frame)
+        self.frame = self.frame[:,:,(0,0,0)]
 
     def _turnCamerasOff(self, command):
         self.takePicture(fname=command[1], emptyBuffer=False)
         if self.startedQ['RS']:
             self.cameras['RS'].closeStream()
-
-        cv2.imshow('cameraServer', self.frame[:,:,(2,1,0)])
+        self.frame = self.frame[:,:,(2,1,0)]
 
     def _takeSinglePic(self, command):
         self.takePicture(fname=command[1], emptyBuffer=True)
